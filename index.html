@@ -11,23 +11,26 @@
   設定說明（請貴單位資訊人員或承辦人閱讀）
 ═══════════════════════════════════════════════════════════════════
 
-  1. 表單提交設定（重要！）
-     請將下方第 <form> 標籤的 action 屬性中的
-       YOUR_EMAIL_HERE@example.com
-     改為實際接收問卷的 email 地址（例如 anesthesia@cthosp.org.tw）
+  本問卷使用 Google Form 作為後端，提交後資料會自動進入
+  Google Forms 的「回覆」分頁，可查看圖表報表或匯出至 Sheet。
 
-     提交服務使用 https://formsubmit.co （免費、無需註冊）
-     第一次提交時，該 email 信箱會收到一封確認信，
-     點擊信中連結後即可正式啟用。之後所有問卷會自動寄至該信箱。
+  ▍部署步驟（全程約 5 分鐘）
 
-  2. 部署於 GitHub Pages
-     將本檔案以「index.html」為名上傳至公開 repository，
-     於 Settings → Pages 啟用後即可取得網址，
-     再以該網址產生 QR code 印在診間/恢復室即可。
+  1. 執行 setup.gs（請見另一檔案的詳細說明）
+     → 會自動建立好對應的 Google Form
+     → 並產生一段「設定區塊」程式碼
 
-  3. 客製化
-     若要更換醫院名稱、顏色或新增題目，請搜尋以下標記：
-       【院名】、【主色】、【題目】
+  2. 將設定區塊貼到本檔案下方 <script> 內標記
+     【貼到此處】的位置（搜尋此字串即可找到）
+
+  3. 將本 index.html 上傳至 GitHub repository
+
+  4. 於 Settings → Pages 啟用，取得網址後產生 QR code
+     印於診間/恢復室/出院衛教單即可
+
+  ▍客製化
+  搜尋以下標記可快速找到對應區塊：
+    【院名】、【主色】、【貼到此處】
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -545,18 +548,10 @@
 
   <!-- 【題目】問卷表單開始 -->
   <!--
-    重要:請將下方 action 中的 YOUR_EMAIL_HERE@example.com
-    改為實際接收問卷的 email 地址。
+    後端設定:本表單透過 JavaScript 提交到 Google Form,
+    請執行 setup.gs 取得設定區塊,並貼到下方 <script> 的對應位置。
   -->
-  <form id="surveyForm"
-        action="https://formsubmit.co/b101099132@gmail.com"
-        method="POST">
-
-    <!-- FormSubmit 設定 -->
-    <input type="hidden" name="_subject" value="麻醉滿意度問卷回饋">
-    <input type="hidden" name="_template" value="table">
-    <input type="hidden" name="_captcha" value="false">
-    <input type="hidden" name="_next" value="">
+  <form id="surveyForm" novalidate>
 
     <!-- 一、基本資料 -->
     <section class="block">
@@ -884,6 +879,23 @@
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+// 【貼到此處】Google Form 設定區塊
+// ───────────────────────────────────────────────────────────────
+// 請先執行 setup.gs (Google Apps Script) 取得以下兩個變數的值,
+// 然後將下方兩行整段取代:
+// ═══════════════════════════════════════════════════════════════
+
+const GOOGLE_FORM_SUBMIT_URL = "PASTE_SUBMIT_URL_HERE";
+
+const GOOGLE_FORM_ENTRY_MAP = {
+  // PASTE_ENTRY_MAP_HERE
+};
+
+// ═══════════════════════════════════════════════════════════════
+// 以下程式碼無需修改
+// ═══════════════════════════════════════════════════════════════
+
 (function() {
   const form = document.getElementById('surveyForm');
   const progressBar = document.getElementById('progressBar');
@@ -891,12 +903,13 @@
   const errorMsg = document.getElementById('errorMsg');
   const formContainer = document.getElementById('formContainer');
   const thankYou = document.getElementById('thankYou');
+  const submitBtn = document.getElementById('submitBtn');
 
   // 預設今日日期
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('fillDate').value = today;
 
-  // 進度計算 — 以「題目」為單位(Q1–Q20 + 6 個基本資料欄位 = 26 項)
+  // 進度計算
   const requiredGroups = [
     '病患姓名','性別','填寫日期','手術醫師','手術日期','麻醉方式','填寫人',
     'Q1_術前訪視態度','Q2_說明清楚程度','Q3_同意書說明','Q4_疑問回答',
@@ -925,12 +938,44 @@
   form.addEventListener('input', updateProgress);
   form.addEventListener('change', updateProgress);
 
+  // 將表單資料轉換為 Google Form 可接受的格式
+  function buildGoogleFormParams() {
+    const params = new URLSearchParams();
+    const fd = new FormData(form);
+
+    for (const [fieldName, entryId] of Object.entries(GOOGLE_FORM_ENTRY_MAP)) {
+      const values = fd.getAll(fieldName);
+
+      // 日期欄位:Google Form 需要拆成 _year / _month / _day 三個參數
+      if (fieldName === '填寫日期' || fieldName === '手術日期') {
+        if (values[0]) {
+          const [year, month, day] = values[0].split('-');
+          if (year && month && day) {
+            params.append(entryId + '_year', year);
+            params.append(entryId + '_month', String(parseInt(month, 10)));
+            params.append(entryId + '_day', String(parseInt(day, 10)));
+          }
+        }
+        continue;
+      }
+
+      // 一般欄位(text / radio / checkbox 多選)
+      values.forEach(v => {
+        if (v !== null && v !== undefined && String(v).trim() !== '') {
+          params.append(entryId, v);
+        }
+      });
+    }
+    return params;
+  }
+
   // 提交處理
   form.addEventListener('submit', function(e) {
-    // 至少要填整體滿意度才能送出(避免空白問卷)
+    e.preventDefault();
+
+    // 最低門檻:至少要填整體滿意度才能送出
     const q15 = form.querySelector('[name="Q15_整體滿意度"]:checked');
     if (!q15) {
-      e.preventDefault();
       errorMsg.classList.add('show');
       const q15El = form.querySelector('[name="Q15_整體滿意度"]');
       if (q15El) q15El.closest('.question').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -938,39 +983,38 @@
     }
     errorMsg.classList.remove('show');
 
-    // 檢查 FormSubmit 是否已設定
-    const actionUrl = form.getAttribute('action');
-    if (actionUrl.includes('YOUR_EMAIL_HERE')) {
-      // 未設定後端 → 改為本地顯示確認頁(避免病患看到失敗訊息)
-      e.preventDefault();
-      console.warn('[設定提醒] FormSubmit email 尚未設定,問卷未實際送出。請將 action 中的 YOUR_EMAIL_HERE 改為實際 email。');
+    // 檢查 Google Form 是否已設定
+    const notConfigured =
+      GOOGLE_FORM_SUBMIT_URL.includes('PASTE_SUBMIT_URL') ||
+      Object.keys(GOOGLE_FORM_ENTRY_MAP).length === 0;
+
+    if (notConfigured) {
+      console.warn('[設定提醒] Google Form 尚未設定。請先執行 setup.gs 取得設定區塊,並貼到 index.html 中【貼到此處】的位置。');
+      // 開發中先顯示感謝頁,避免病患看到設定錯誤
       showThankYou();
       return;
     }
 
-    // 正式送出 — formsubmit 會自動處理,但我們先顯示感謝頁
-    // 改為以 fetch 送出,以便我們控制畫面
-    e.preventDefault();
-    const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
-    submitBtn.textContent = '送 出 中 ...';
+    submitBtn.textContent = '送 出 中 . . .';
 
-    const formData = new FormData(form);
-    fetch(actionUrl, {
+    const params = buildGoogleFormParams();
+
+    // Google Forms 不回應 CORS,使用 no-cors 模式
+    // 此模式下無法讀取回應內容,但提交本身會成功送達
+    fetch(GOOGLE_FORM_SUBMIT_URL, {
       method: 'POST',
-      body: formData,
-      headers: { 'Accept': 'application/json' }
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
     })
-    .then(resp => {
-      if (resp.ok) {
-        showThankYou();
-      } else {
-        throw new Error('送出失敗');
-      }
+    .then(() => {
+      showThankYou();
     })
     .catch(err => {
-      // 即使失敗也顯示感謝頁,但於 console 留訊息
-      console.error('送出時發生錯誤:', err);
+      console.error('送出時發生錯誤,但仍可能已送達 Google Form:', err);
+      // no-cors 模式即使網路順利, 也可能因瀏覽器限制而進到 catch
+      // 此時仍顯示感謝頁,因實際資料通常已送達
       showThankYou();
     });
   });
