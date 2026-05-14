@@ -8,29 +8,36 @@
 
 <!--
 ═══════════════════════════════════════════════════════════════════
-  設定說明（請貴單位資訊人員或承辦人閱讀）
+  設定說明（請承辦人閱讀，全程約 10 分鐘）
 ═══════════════════════════════════════════════════════════════════
 
-  本問卷使用 Google Form 作為後端，提交後資料會自動進入
-  Google Forms 的「回覆」分頁，可查看圖表報表或匯出至 Sheet。
+  本問卷透過 Google Apps Script 將填寫結果直接寫入 Google 試算表。
 
-  ▍部署步驟（全程約 5 分鐘）
+  ▍部署步驟
 
-  1. 執行 setup.gs（請見另一檔案的詳細說明）
-     → 會自動建立好對應的 Google Form
-     → 並產生一段「設定區塊」程式碼
+  【第一步】建立 Google 試算表與 Apps Script
+  1. 前往 https://sheets.google.com 建立一份新的空白試算表
+     （名稱建議：麻醉滿意度問卷回覆）
+  2. 在試算表上方選單點選「擴充功能」→「Apps Script」
+  3. 將 setup.gs 的完整內容貼入編輯器（取代原有程式碼）
+  4. 點選上方「部署」→「新增部署作業」
+     - 類型選「網頁應用程式」
+     - 執行身分：「我」
+     - 誰可以存取：「所有人」
+  5. 點「部署」，複製產生的「網頁應用程式網址」
 
-  2. 將設定區塊貼到本檔案下方 <script> 內標記
-     【貼到此處】的位置（搜尋此字串即可找到）
+  【第二步】填入本 HTML 的設定
+  6. 搜尋本檔案中的 YOUR_APPS_SCRIPT_URL_HERE
+     將整段字串替換為上一步複製的網址
 
-  3. 將本 index.html 上傳至 GitHub repository
-
-  4. 於 Settings → Pages 啟用，取得網址後產生 QR code
-     印於診間/恢復室/出院衛教單即可
+  【第三步】上傳至 GitHub Pages
+  7. 將本 index.html 上傳至 GitHub repository
+  8. 於 Settings → Pages 啟用，取得網址後產生 QR Code
+     印於診間／恢復室／出院衛教單即可
 
   ▍客製化
   搜尋以下標記可快速找到對應區塊：
-    【院名】、【主色】、【貼到此處】
+    【院名】、【主色】、YOUR_APPS_SCRIPT_URL_HERE
 ═══════════════════════════════════════════════════════════════════
 -->
 
@@ -880,66 +887,29 @@
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// 【貼到此處】Google Form 設定區塊
-// ───────────────────────────────────────────────────────────────
-// 請先執行 setup.gs (Google Apps Script) 取得以下兩個變數的值,
-// 然後將下方兩行整段取代:
+// 【唯一需要修改的地方】
+// 將下方 YOUR_APPS_SCRIPT_URL_HERE 替換為您的 Apps Script 網址
+// （請依照 HTML 上方的設定說明取得此網址）
 // ═══════════════════════════════════════════════════════════════
-
-const GOOGLE_FORM_SUBMIT_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeSZTagsR86rEtla7v14F4IdenQNB1LhWaaeS8EXB9tFISFmQ/formResponse";
-
-const GOOGLE_FORM_ENTRY_MAP = {
-  "病患姓名": "entry.759021207",
-  "性別": "entry.1816246310",
-  "填寫日期": "entry.1012171773",
-  "手術醫師": "entry.1184161454",
-  "手術日期": "entry.1623968768",
-  "麻醉醫師": "entry.1838040477",
-  "麻醉護理師": "entry.210692348",
-  "麻醉方式": "entry.155650934",
-  "填寫人": "entry.2007450600",
-  "家屬關係": "entry.1914547718",
-  "Q1_術前訪視態度": "entry.1692113545",
-  "Q2_說明清楚程度": "entry.181036250",
-  "Q3_同意書說明": "entry.1404520134",
-  "Q4_疑問回答": "entry.795930188",
-  "Q5_第一印象": "entry.1293304706",
-  "Q6_準備舒適度": "entry.827937964",
-  "Q7_誘導安心感": "entry.1143608026",
-  "Q8_專業技術": "entry.1819780218",
-  "Q9_甦醒舒適度": "entry.2014732334",
-  "Q10_疼痛控制": "entry.1513588342",
-  "Q11_不適症狀": "entry.1377078902",
-  "Q11_其他不適": "entry.911940928",
-  "Q12_不適處理": "entry.62533749",
-  "Q13_醫師態度": "entry.1548408124",
-  "Q14_護理態度": "entry.1066681662",
-  "Q15_整體滿意度": "entry.677216091",
-  "Q16_再次選擇": "entry.1352079376",
-  "Q17_推薦意願": "entry.905076733",
-  "Q18_肯定處": "entry.1272232862",
-  "Q19_改進處": "entry.1552277973",
-  "Q20_其他建議": "entry.2044745284"
-};
-
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEULc-I_gAZPMHoHrXVogonPUjFi9PGOvm-Jw98SSCNJpmNa0XELQZav2heJJQxbk1jg/exec';
 // ═══════════════════════════════════════════════════════════════
 // 以下程式碼無需修改
 // ═══════════════════════════════════════════════════════════════
 
-(function() {
-  const form = document.getElementById('surveyForm');
+(function () {
+  const form        = document.getElementById('surveyForm');
   const progressBar = document.getElementById('progressBar');
   const progressPct = document.getElementById('progressPct');
-  const errorMsg = document.getElementById('errorMsg');
-  const formContainer = document.getElementById('formContainer');
-  const thankYou = document.getElementById('thankYou');
-  const submitBtn = document.getElementById('submitBtn');
+  const errorMsg    = document.getElementById('errorMsg');
+  const formWrap    = document.getElementById('formContainer');
+  const thankYou    = document.getElementById('thankYou');
+  const submitBtn   = document.getElementById('submitBtn');
 
-  // 預設今日日期
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('fillDate').value = today;
+  /* ── 預設今日日期 ─────────────────────────── */
+  document.getElementById('fillDate').value =
+    new Date().toISOString().split('T')[0];
 
-  // 進度計算
+  /* ── 進度追蹤 ─────────────────────────────── */
   const requiredGroups = [
     '病患姓名','性別','填寫日期','手術醫師','手術日期','麻醉方式','填寫人',
     'Q1_術前訪視態度','Q2_說明清楚程度','Q3_同意書說明','Q4_疑問回答',
@@ -948,109 +918,95 @@ const GOOGLE_FORM_ENTRY_MAP = {
     'Q13_醫師態度','Q14_護理態度','Q15_整體滿意度','Q16_再次選擇','Q17_推薦意願'
   ];
 
+  function isGroupFilled(name) {
+    const fields = form.querySelectorAll('[name="' + name + '"]');
+    if (!fields.length) return false;
+    const first = fields[0];
+    if (first.type === 'radio' || first.type === 'checkbox') {
+      return Array.from(fields).some(function(f) { return f.checked; });
+    }
+    return first.value.trim() !== '';
+  }
+
   function updateProgress() {
-    let filled = 0;
-    requiredGroups.forEach(name => {
-      const fields = form.querySelectorAll(`[name="${name}"]`);
-      if (!fields.length) return;
-      const first = fields[0];
-      if (first.type === 'radio' || first.type === 'checkbox') {
-        if (Array.from(fields).some(f => f.checked)) filled++;
-      } else {
-        if (first.value.trim()) filled++;
-      }
-    });
+    const filled = requiredGroups.filter(isGroupFilled).length;
     const pct = Math.round((filled / requiredGroups.length) * 100);
     progressBar.style.width = pct + '%';
     progressPct.textContent = pct;
   }
 
-  form.addEventListener('input', updateProgress);
+  form.addEventListener('input',  updateProgress);
   form.addEventListener('change', updateProgress);
 
-  // 將表單資料轉換為 Google Form 可接受的格式
-  function buildGoogleFormParams() {
-    const params = new URLSearchParams();
-    const fd = new FormData(form);
+  /* ── iOS Safari 修正：touchend 確保 checked 狀態即時更新 ── */
+  form.querySelectorAll('label.opt').forEach(function(label) {
+    label.addEventListener('touchend', function() {
+      // 給瀏覽器一個 tick 更新 checked 狀態後再重算進度
+      setTimeout(updateProgress, 30);
+    }, { passive: true });
+  });
 
-    for (const [fieldName, entryId] of Object.entries(GOOGLE_FORM_ENTRY_MAP)) {
-      const values = fd.getAll(fieldName);
+  /* ── 收集所有表單資料為 JSON ─────────────── */
+  function collectData() {
+    const fd   = new FormData(form);
+    const data = { 填寫時間戳記: new Date().toLocaleString('zh-TW') };
 
-      // 日期欄位:Google Form 需要拆成 _year / _month / _day 三個參數
-      if (fieldName === '填寫日期' || fieldName === '手術日期') {
-        if (values[0]) {
-          const [year, month, day] = values[0].split('-');
-          if (year && month && day) {
-            params.append(entryId + '_year', year);
-            params.append(entryId + '_month', String(parseInt(month, 10)));
-            params.append(entryId + '_day', String(parseInt(day, 10)));
-          }
-        }
-        continue;
-      }
+    // 取得表單內所有 name（保留原始順序）
+    const seen  = new Set();
+    const names = [];
+    form.querySelectorAll('[name]').forEach(function(el) {
+      if (!seen.has(el.name)) { seen.add(el.name); names.push(el.name); }
+    });
 
-      // 一般欄位(text / radio / checkbox 多選)
-      values.forEach(v => {
-        if (v !== null && v !== undefined && String(v).trim() !== '') {
-          params.append(entryId, v);
-        }
+    names.forEach(function(name) {
+      const values = fd.getAll(name).filter(function(v) {
+        return v !== null && String(v).trim() !== '';
       });
-    }
-    return params;
+      // checkbox 多選：用頓號串接；其他取第一個值
+      data[name] = values.length > 1 ? values.join('、') : (values[0] || '');
+    });
+
+    return data;
   }
 
-  // 提交處理
+  /* ── 送出 ────────────────────────────────── */
   form.addEventListener('submit', function(e) {
     e.preventDefault();
 
-    // 最低門檻:至少要填整體滿意度才能送出
-    const q15 = form.querySelector('[name="Q15_整體滿意度"]:checked');
-    if (!q15) {
+    // 最低門檻：Q15 整體滿意度必填
+    if (!form.querySelector('[name="Q15_整體滿意度"]:checked')) {
       errorMsg.classList.add('show');
-      const q15El = form.querySelector('[name="Q15_整體滿意度"]');
-      if (q15El) q15El.closest('.question').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      form.querySelector('[name="Q15_整體滿意度"]')
+          .closest('.question')
+          .scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     errorMsg.classList.remove('show');
 
-    // 檢查 Google Form 是否已設定
-    const notConfigured =
-      GOOGLE_FORM_SUBMIT_URL.includes('PASTE_SUBMIT_URL') ||
-      Object.keys(GOOGLE_FORM_ENTRY_MAP).length === 0;
-
-    if (notConfigured) {
-      console.warn('[設定提醒] Google Form 尚未設定。請先執行 setup.gs 取得設定區塊,並貼到 index.html 中【貼到此處】的位置。');
-      // 開發中先顯示感謝頁,避免病患看到設定錯誤
+    // 尚未設定：開發預覽用，直接顯示感謝頁
+    if (SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+      console.warn('[設定提醒] Apps Script 網址尚未填入，請依說明完成設定。');
       showThankYou();
       return;
     }
 
-    submitBtn.disabled = true;
+    submitBtn.disabled    = true;
     submitBtn.textContent = '送 出 中 . . .';
 
-    const params = buildGoogleFormParams();
+    // no-cors：瀏覽器安全限制下無法讀取回應，但資料已送達
+    fetch(SCRIPT_URL, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(collectData())
+    })
+    .then(showThankYou)
+    .catch(showThankYou); // no-cors 幾乎必定進 catch，仍視為成功
 
-    // Google Forms 不回應 CORS,使用 no-cors 模式
-    // 此模式下無法讀取回應內容,但提交本身會成功送達
-    fetch(GOOGLE_FORM_SUBMIT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
-    })
-    .then(() => {
-      showThankYou();
-    })
-    .catch(err => {
-      console.error('送出時發生錯誤,但仍可能已送達 Google Form:', err);
-      // no-cors 模式即使網路順利, 也可能因瀏覽器限制而進到 catch
-      // 此時仍顯示感謝頁,因實際資料通常已送達
-      showThankYou();
-    });
   });
 
   function showThankYou() {
-    formContainer.style.display = 'none';
+    formWrap.style.display = 'none';
     document.querySelector('.progress-wrap').style.display = 'none';
     thankYou.classList.add('show');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1058,6 +1014,7 @@ const GOOGLE_FORM_ENTRY_MAP = {
 
   // 初次計算
   updateProgress();
+
 })();
 </script>
 
